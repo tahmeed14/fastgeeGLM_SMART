@@ -12,3 +12,8 @@
 
 // Include Eigen Package for Matrices
 #include <Eigen/Core>
+
+
+int main() {
+	cout << "whoa" << endl;
+}
