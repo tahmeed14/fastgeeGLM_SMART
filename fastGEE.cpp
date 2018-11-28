@@ -82,16 +82,19 @@ int main(int argc, char* argv[]) {
 	int n = int( unique_set.size() );
 	int m = int( id_map[ID_Mat(1,0)] );
 
-	cout << "n is " << n << endl << endl;
-	cout << "m is " << m << endl << endl;
+	// q = (p + 1) : # number of paramters to be estimated using GEE
+	int q = design_X.cols();
+
+	// cout << "n is " << n << endl << endl;
+	// cout << "m is " << m << endl << endl;
 
 	// Step (3): Initialize betas *********** Should we incorporate the beta's that come from a fast linear regression or no?
 
 	Eigen::MatrixXd Betas_new(int(design_X.cols()) , 1); // dimensions (p+1)  x 1
 	Betas_new.setZero();
 
-	cout << "Betas ***********************" << endl;
-	cout << Betas_new << endl << endl;
+	// cout << "Betas ***********************" << endl;
+	// cout << Betas_new << endl << endl;
 
 	// Step (4): Initialize rho and phi (rho: off diagonals of correlation structure & phi: )
 	double rho = 0.0;
@@ -113,13 +116,15 @@ int main(int argc, char* argv[]) {
 	// Step (7): Assign appropriate value to n*
 	double n_star = (0.5) * double(n) * double(m) * double(m - 1);
 
-	cout << " n* is " << n_star << endl;
+	// cout << " n* is " << n_star << endl;
 
 	// Step (8): Start the GEE Estimation
 
 	Eigen::MatrixXd Betas_updated = Betas_new;
 
-	cout << Betas_updated << endl;
+	Eigen::MatrixXd sandwhich_Mat;
+
+	// cout << Betas_updated << endl << endl;
 
 	while ( (diff_beta > diff_threshold) && (iteration_count < iteration_threshold) ) {
 		// (1)
@@ -143,16 +148,68 @@ int main(int argc, char* argv[]) {
 		double phi_sum = 0.0;
 		double tau_sum = 0.0;
 
+		// (6) Initialize start and end
+		int start = 0;
+		int end = -1;
+
 		// inner loop in while loop Time-Complexity: O(n^2)??
 
-		for (int i; i < n; ++i) {
+		for (int i = 0; i < n; ++i) {
 			start = end + 1;
-			end ;
+			end = start + m - 1;
+
+			// assign mu_i ( m x (p+1) ) for ith person
+			// Eigen.block(starting_row = , starting_col = , dim_row = , dim_col = )
+			Eigen::MatrixXd mu_i = design_X.block(start, 0, m, q) * Betas_updated;
+
+			// assign r_i (m x 1)
+			Eigen::MatrixXd r_i = outcome_Y.block(start, 0, m, 1) - mu_i;
+
+			// Loop to update phi-sum
+			for (int j = 0; j < int(m); ++j) phi_sum = phi_sum + (r_i(j,0) * r_i(j,0));
+
+			// Loop to update tau-sum
+			for (int j = 0; j < int(m - 1); ++j) {
+				for (int k = (j + 1); k < m; ++k) tau_sum = tau_sum + r_i(j,0) * r_i(k, 0);
+			}
+
+			// create R matrix (m x m) for each observation/patient
+			Eigen::MatrixXd R(m, m);
+			R.setConstant(rho); // off-diagonals will be rho
+			for (int i = 0; i < int(m); ++i) R(i, i) = 1; //diagonals will be 1
+
+			// update EE ((p+1) x 1)
+			EE = EE + ((design_X.block(start, 0, m, q).transpose()) * (R.inverse()*r_i));
+
+			// update GI ((p+1) x (p+1)) or (q x q)
+			GI = GI + ((design_X.block(start, 0, m, q).transpose()) * R.inverse() *  design_X.block(start, 0, m, q));
+
+			// update G ((p+1) x (p+1)) or (q x q)
+			G = G + ((design_X.block(start, 0, m, q).transpose()) *
+				( ((R.inverse()) * r_i) * (r_i.transpose()*(R.inverse())) ) * design_X.block(start, 0, m, q));
 		}
 
-		break;
+		// Update beta using either Newton Raphson or Gradient Boosting *** we can add an if statement
+		Betas_new = Betas_updated + ( GI.inverse() * EE);
+
+		// calculate the difference in the betas
+		diff_beta = (Betas_new - Betas_updated).norm();
+
+		// update rho
+		rho = ( (( double(n) - double(q) ) * tau_sum) / ( (double(n_star) - double(q) ) * phi_sum) );
+
+
+		sandwhich_Mat = GI.inverse() * G * GI.inverse();
+		// increment iteration count
+		iteration_count += 1;
 	}
 
+	cout << "Estimated Betas are: " << endl;
+	cout << Betas_new.transpose() << endl << endl << endl;
+
+	cout << "The sandwhich matrix is: " << endl << endl;
+	cout << sandwhich_Mat << endl;
+	 
 
 	return 0;
 
