@@ -1,6 +1,6 @@
 ## Function for adding Weights
 
-
+library(dplyr)
 
 add.Weights <- function(dataset, option = "known") {
     # Create column for the Weights
