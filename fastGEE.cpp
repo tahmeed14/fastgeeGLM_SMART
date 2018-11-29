@@ -83,10 +83,7 @@ int main(int argc, char* argv[]) {
 	int m = int( id_map[ID_Mat(1,0)] );
 
 	// q = (p + 1) : # number of paramters to be estimated using GEE
-	int q = design_X.cols();
-
-	// cout << "n is " << n << endl << endl;
-	// cout << "m is " << m << endl << endl;
+	int q = int ( design_X.cols() );
 
 	// Step (3): Initialize betas *********** Should we incorporate the beta's that come from a fast linear regression or no?
 
