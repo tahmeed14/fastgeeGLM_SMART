@@ -86,18 +86,10 @@ int main(int argc, char* argv[]) {
 	}
 
 	// int n = int( unique_ID.size() );
-	
-	// cout << "n is << " << n << endl;
 
-	// cout << "size of the id to m map is " << m_map.size() << endl;
-
-	// cout << "m of 1st patient is " << m_map[1] << " " << m_map[100] << " " << m_map[2] << endl << endl;
-	cout << endl << endl << "size of weight map " << weight_map.size() << endl;
-	cout << endl << endl << endl;
-
-	for (std::set<int>::iterator iter = unique_ID.begin(); iter != unique_ID.end(); ++iter) {
-		cout << weight_map[*iter] << endl;
-	}
+	// for (std::set<int>::iterator iter = unique_ID.begin(); iter != unique_ID.end(); ++iter) {
+	// 	cout << weight_map[*iter] << endl;
+	// }
 
 	// q = (p + 1) : # number of paramters to be estimated using GEE
 	int q = int ( design_X.cols() );
@@ -238,10 +230,10 @@ int main(int argc, char* argv[]) {
 			// update EE ((p+1) x 1)
 
 			//// NEEEEED TOOOOOOOO ADDDDDDD WEIGHTS HERE
-			EE = EE + ((design_X.block(start, 0, m, q).transpose()) * (R.inverse() * (r_i) )); // weight_map
+			EE = EE + ((design_X.block(start, 0, m, q).transpose()) * (R.inverse() * (double(w) * r_i) )); // weight_map
 
 			// update GI ((p+1) x (p+1)) or (q x q)
-			GI = GI + ((design_X.block(start, 0, m, q).transpose()) * R.inverse() *  design_X.block(start, 0, m, q));
+			GI = GI + ((double(w) * (design_X.block(start, 0, m, q).transpose())) * R.inverse() *  design_X.block(start, 0, m, q));
 
 			// update G ((p+1) x (p+1)) or (q x q)
 			// G = G + ((design_X.block(start, 0, m, q).transpose()) * ( ((R.inverse()) * r_i) * (r_i.transpose()*(R.inverse())) ) * design_X.block(start, 0, m, q));
@@ -288,6 +280,9 @@ int main(int argc, char* argv[]) {
 		start = end + 1;
 		end = start + m - 1;
 
+		// incorporate the weights (Note: this is just 1 if a weighted GEE is not specified)
+		double w = weight_map[*iter];
+
 		Eigen::MatrixXd mu_i = design_X.block(start, 0, m, q) * Betas_updated;
 
 		// cout << "mu_i is here " << endl;
@@ -305,7 +300,7 @@ int main(int argc, char* argv[]) {
 		}
 
 		// update G ((p+1) x (p+1)) or (q x q)
-		G = G + ((design_X.block(start, 0, m, q).transpose()) * ( ((R.inverse()) * r_i) * (r_i.transpose()*(R.inverse())) ) * design_X.block(start, 0, m, q));
+		G = G + ((pow(double(w), 2) * (design_X.block(start, 0, m, q).transpose())) * ( ((R.inverse()) * r_i) * (r_i.transpose()*(R.inverse())) ) * design_X.block(start, 0, m, q));
 	}
 
 	sandwhich_Mat = tempGI.inverse() * G * tempGI.inverse();
