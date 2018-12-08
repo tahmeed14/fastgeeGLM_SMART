@@ -50,25 +50,26 @@ int main(int argc, char* argv[]) {
 	read_Design.cloneToEigen(design_X);
 	read_Y.cloneToEigen(outcome_Y);
 
-	// cout << Weights.rows() << endl << endl;
-	// cout << Weights << endl;
-	Eigen::MatrixXd Weights(outcome_Y.rows(), 1);
-	// Weights.setOnes();
+	// Designate Weight Matrix
+	Eigen::MatrixXd Weights;
 
-	// cout << "argc is " << argc << endl;
-
-	if (int (argc) == 5) {
+	if (int(argc) == 5) {
 		Matrix615<double> read_Weights;
 		read_Weights.readFromFile(argv[4]);
 
-		Eigen::MatrixXd Weights;
-		read_Weights.cloneToEigen(Weights);
+		Eigen::MatrixXd temp_Weights;
+		read_Weights.cloneToEigen(temp_Weights);
+		Weights = temp_Weights;
 	}
 
 	else {
-		Weights.setOnes();
+		Eigen::MatrixXd temp_Weights(outcome_Y.rows(), 1);
+		temp_Weights.setOnes();
+
+		Weights = temp_Weights;
 	}
 
+	// cout << Weights << endl;
 
 	// Step (2): Count number of unique ID's, patients
 	Eigen::MatrixXd ID_Mat;
@@ -91,7 +92,12 @@ int main(int argc, char* argv[]) {
 	// cout << "size of the id to m map is " << m_map.size() << endl;
 
 	// cout << "m of 1st patient is " << m_map[1] << " " << m_map[100] << " " << m_map[2] << endl << endl;
-	// cout << "size of weight map " << weight_map.size() << endl;
+	cout << endl << endl << "size of weight map " << weight_map.size() << endl;
+	cout << endl << endl << endl;
+
+	for (std::set<int>::iterator iter = unique_ID.begin(); iter != unique_ID.end(); ++iter) {
+		cout << weight_map[*iter] << endl;
+	}
 
 	// q = (p + 1) : # number of paramters to be estimated using GEE
 	int q = int ( design_X.cols() );
@@ -183,6 +189,8 @@ int main(int argc, char* argv[]) {
 			start = end + 1;
 			end = start + m - 1;
 
+			double w = weight_map[*iter];
+
 			n_star_sum = n_star_sum + (0.5) * double(m) * double(double(m) - 1.0);
 			m_sum = m_sum + double(m);
 
@@ -228,6 +236,8 @@ int main(int argc, char* argv[]) {
 
 			// cout << R << endl << endl << endl;
 			// update EE ((p+1) x 1)
+
+			//// NEEEEED TOOOOOOOO ADDDDDDD WEIGHTS HERE
 			EE = EE + ((design_X.block(start, 0, m, q).transpose()) * (R.inverse() * (r_i) )); // weight_map
 
 			// update GI ((p+1) x (p+1)) or (q x q)
