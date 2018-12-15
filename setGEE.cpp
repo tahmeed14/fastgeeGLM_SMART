@@ -27,6 +27,7 @@
 using namespace std;
 // we avoid using namespace Eigen to be able to clearly see where we are calling the Eigen Package
 
+
 // Driver Code
 int main(int argc, char* argv[]) {
 
@@ -69,7 +70,6 @@ int main(int argc, char* argv[]) {
 		Weights = temp_Weights;
 	}
 
-	// cout << Weights << endl;
 
 	// Step (2): Count number of unique ID's, patients
 	Eigen::MatrixXd ID_Mat;
@@ -85,16 +85,8 @@ int main(int argc, char* argv[]) {
 		weight_map[ID_Mat(i, 0)] = Weights(i, 0); 
 	}
 
-	// int n = int( unique_ID.size() );
-
-	// for (std::set<int>::iterator iter = unique_ID.begin(); iter != unique_ID.end(); ++iter) {
-	// 	cout << weight_map[*iter] << endl;
-	// }
-
-	// q = (p + 1) : # number of paramters to be estimated using GEE
+	// keeping track of number of cols of design
 	int q = int ( design_X.cols() );
-
-	// cout << "q is " << q << endl;
 
 	// Correlation Structure
 
@@ -105,16 +97,10 @@ int main(int argc, char* argv[]) {
 	Eigen::MatrixXd Betas_new(q , 1); // dimensions (p+1)  x 1
 	Betas_new.setZero();
 
-	// cout << "Betas ***********************" << endl;
-	// cout << Betas_new << endl << endl;
-
 	// Step (4): Initialize rho and phi (rho: off diagonals of correlation structure & phi: )
 	double rho = 0.0;
-	// double phi = 0.0;
 
 	// Step (5): Set up variables for iteration convergence check
-
-	// Should we make this dynamic? 
 
 	double diff_beta = 1; // updated difference in beta estimation {beta (new) - beta (old)}
 	
@@ -131,10 +117,6 @@ int main(int argc, char* argv[]) {
 
 	// calculate n_star_sum
 
-	// for (std::set<int>::iterator iter = unique_ID.begin(); iter != unique_ID.end(); ++iter) {
-	// 	n_star_sum = n_star_sum + (0.5) * double(m_map[*iter]) * double(double(m_map[*iter]) - double(1.0));
-	// }
-
 	// Step (8): Start the GEE Estimation
 
 	Eigen::MatrixXd Betas_updated = Betas_new;
@@ -142,8 +124,6 @@ int main(int argc, char* argv[]) {
 	Eigen::MatrixXd sandwhich_Mat;
 
 	Eigen::MatrixXd tempGI(q, q);
-
-	// // cout << Betas_updated << endl << endl;
 
 	int before_EE = clock();
 
@@ -159,11 +139,6 @@ int main(int argc, char* argv[]) {
 		// (3) Matrix GI (q x q)
 		Eigen::MatrixXd GI(q, q);
 		GI.setZero();
-
-		// // (4) Matrix G ( (p+1) x (p+1) )
-		// // Meat of the Sandwhich Estimator
-		// Eigen::MatrixXd G(q , q);
-		// G.setZero();
 
 		// (5) Initialize phi(sum) and tau(sum)
 		long double phi_sum = 0.0;
@@ -186,28 +161,19 @@ int main(int argc, char* argv[]) {
 			n_star_sum = n_star_sum + (0.5) * double(m) * double(double(m) - 1.0);
 			m_sum = m_sum + double(m);
 
-			// cout << "start is " << start << endl;
-			// cout << "end is " << end << endl << endl;
-
 			// assign mu for ith observation
 			// Eigen.block(starting_row = , starting_col = , dim_row = , dim_col = )
 			Eigen::MatrixXd mu_i = design_X.block(start, 0, m, q) * Betas_updated;
 
-			// cout << "mu_i is here " << endl;
-			// cout << mu_i << endl << endl;
-
 			// assign r_i (mi x 1)
 			Eigen::MatrixXd r_i = outcome_Y.block(start, 0, m, 1) - mu_i;
 
-			// cout << "r_i is here " << endl;
-			// cout << r_i << endl;
 
 			// add r_i ^2 to phi_sum from the ith observation
 			for (int j = 0; j < int(m); ++j) {
 				phi_sum = phi_sum + (r_i(j,0) * r_i(j,0));
 			}
 
-			// cout << "phi_sum is " << phi_sum << endl; 
 
 			// add to tau_sum
 			for (int j = 0; j < ( int(m) - 1 ); ++j) {
@@ -217,7 +183,6 @@ int main(int argc, char* argv[]) {
 				}
 			}
 
-			// cout << "tau_sum is " << tau_sum << endl;
 
 			// create R matrix (mi x mi) for each observation
 			Eigen::MatrixXd R(m, m);
@@ -226,10 +191,8 @@ int main(int argc, char* argv[]) {
 				R(d, d) = 1;
 			}
 
-			// cout << R << endl << endl << endl;
-			// update EE ((p+1) x 1)
 
-			//// NEEEEED TOOOOOOOO ADDDDDDD WEIGHTS HERE
+			//// Weighted update (if not specified than scalar of 1)
 			EE = EE + ((design_X.block(start, 0, m, q).transpose()) * (R.inverse() * (double(w) * r_i) )); // weight_map
 
 			// update GI ((p+1) x (p+1)) or (q x q)
@@ -247,13 +210,7 @@ int main(int argc, char* argv[]) {
 		diff_beta = (Betas_new - Betas_updated).norm();
 		// diff_beta = (Betas_new - Betas_updated).array().abs().sum();
 
-		// update rho
-		// cout << "tau_sum is " << tau_sum << endl;
-		// cout << "phi_sum is " << phi_sum << endl;
-
 		rho = ( (( double(m_sum) - double(q) ) * tau_sum) / ( (double(n_star_sum) - double(q) ) * phi_sum) );
-
-		// cout << "rho is " << rho << endl << endl;
 
 		// sandwhich_Mat = GI.inverse() * G * GI.inverse();
 		tempGI = GI;
@@ -266,11 +223,6 @@ int main(int argc, char* argv[]) {
 	// Meat of the Sandwhich Estimator
 	Eigen::MatrixXd G(q , q);
 	G.setZero();
-
-	// To calculate the sandwhich estimator
-	// for (std::set<int>::iterator iter = unique_ID.begin(); iter != unique_ID.end(); ++iter) {
-	// 	n_star_sum = n_star_sum + (0.5) * double(m_map[*iter]) * double(double(m_map[*iter]) - double(1.0));
-	// }
 
 	int start = 0;
 	int end = -1;
@@ -285,9 +237,6 @@ int main(int argc, char* argv[]) {
 
 		Eigen::MatrixXd mu_i = design_X.block(start, 0, m, q) * Betas_updated;
 
-		// cout << "mu_i is here " << endl;
-		// cout << mu_i << endl << endl;
-
 		// assign r_i (mi x 1)
 		Eigen::MatrixXd r_i = outcome_Y.block(start, 0, m, 1) - mu_i;
 
@@ -295,9 +244,7 @@ int main(int argc, char* argv[]) {
 
 		R.setConstant(rho);
 
-		for (int d = 0; d < int(m); ++d) {
-			R(d, d) = 1;
-		}
+		for (int d = 0; d < int(m); ++d) R(d, d) = 1;
 
 		// update G ((p+1) x (p+1)) or (q x q)
 		G = G + ((pow(double(w), 2) * (design_X.block(start, 0, m, q).transpose())) * ( ((R.inverse()) * r_i) * (r_i.transpose()*(R.inverse())) ) * design_X.block(start, 0, m, q));
@@ -307,19 +254,14 @@ int main(int argc, char* argv[]) {
 
 	int after_EE = clock();
 
-
-	// cout << " n start sum ended up being " << n_star_sum << endl;
-	// cout << "m sum ended up being " << m_sum << endl;
-	cout << "**************** GEE Results ****************" << endl;
+	// Output Results
+	cout << endl << endl << "**************** GEE Results ****************" << endl;
 	cout << endl << endl << "Iteration count at: " << iteration_count << endl;
 
 	cout << "The correlation parameter: " << rho << endl;
 
 	cout << endl << "Estimated Betas are: " << endl;
 	cout << Betas_new.transpose() << endl << endl << endl;
-
-	// cout << "The sandwhich matrix is: " << endl << endl;
-	// cout << sandwhich_Mat << endl << endl;
 
 	cout << "The beta Robust S.E.'s are: " << endl << endl;
 	cout << sandwhich_Mat.diagonal().array().sqrt() << endl << endl;
@@ -330,3 +272,30 @@ int main(int argc, char* argv[]) {
 	return 0;
 
 }
+
+// *** Please Ignore ***
+// extern "C" {
+// 	void runGEE(const double* R_Design, const int* R_Design_nrow, const 
+// 		int* R_Design_ncol, const double* R_outcome_Y, const int* R_outcome_Y_nrow, const int* R_outcome_Y_ncol,
+// 		const double* R_ID, const int* R_ID_nrow, const int* R_ID_ncol, 
+// 		const double *R_Weights, const int* R_Weights_nrow, const int* R_Weights_ncol,
+// 		double* estimated_Betas, double* corr_Param, double* std_Errors, int* iter_Count) {
+
+// 		// Read in the Design matrix to Eigen MatrixXd
+// 		Eigen::Map<Eigen::MatrixXd > design_X(R_Design,*R_Design_nrow, *R_Design_ncol);
+
+// 		Eigen::Map<Eigen::MatrixXd> outcome_Y(R_outcome_Y, *R_outcome_Y_nrow, *R_outcome_Y_ncol);
+
+// 		Eigen::Map<Eigen::MatrixXd> ID_Mat(R_ID, *R_ID_nrow, *R_ID_ncol);
+
+// 		Eigen::Map<Eigen::MatrixXd> Weights(R_Weights, *R_Design_nrow, *R_Design_ncol);
+
+
+// 		// How to add the specific variables to the last three variables that I have?
+// 		estimated_Betas = //
+// 		corr_Param = //
+// 		std_Errors = //
+// 		iter_Count = //
+
+// 	}
+// }
